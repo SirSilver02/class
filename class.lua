@@ -1,5 +1,31 @@
 local __classes = {}
 
+local function is_a(s, c)
+    if type(s) == "string" then
+        s = __classes[s]
+    end
+
+    if type(c) == "string" then
+        c = __classes[c]
+    end
+
+    if s == c then
+        return true
+    end
+
+    local supers = s.__super_classes
+
+    if supers then
+        for i = 1, #supers do
+            if class.is_a(supers[i], c) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 local function make_class(name, ...)
     assert(not __classes[name], "Class " .. name .. " already exists!")
 
@@ -20,7 +46,7 @@ local function make_class(name, ...)
         end
         
         for i = 1, #super_classes do
-            local super_class = __classes[super_classes[i]]
+            local super_class = type(super_classes[i]) == "table" and super_classes[i] or __classes[super_classes[i]]
             local value = super_class[k]
             
             if value then
@@ -30,29 +56,7 @@ local function make_class(name, ...)
         end
     end
 
-    class.is_a = function(s, c)
-        if type(c) == "table" then
-            c = c.__class
-        end
-
-        if c == name then
-            return true
-        end
-
-        for i = 1, #super_classes do
-            if c == super_classes[i] then
-                return true
-            end
-
-            local super_is = __classes[super_classes[i]]:is_a(c) 
-
-            if super_is then 
-                return true 
-            end
-        end
-
-        return false
-    end
+    class.is_a = is_a,
 
     class.__call = function(s, ...)
         return s.new(...)
@@ -69,12 +73,16 @@ local function make_class(name, ...)
     end
 
     class.__class = name
+    class.__super_classes = super_classes
+
     __classes[name] = class
 
     return class
 end
 
 local class = setmetatable({
+    is_a =  is_a,
+
     get = function(name) 
         return setmetatable({}, {
             __index = function(s, i) 
